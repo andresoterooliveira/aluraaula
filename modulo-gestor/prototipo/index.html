@@ -1,0 +1,1084 @@
+<title>App Rota · Gestor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: trilho de navegação à esquerda (placa de rodovia) + área de trabalho; no celular vira abas roláveis no topo */
+:root {
+  --bg: #f3f5f2;
+  --surface: #ffffff;
+  --sunken: #e9ede8;
+  --ink: #18211d;
+  --muted: #5a6862;
+  --line: #d8dfd9;
+  --accent: #0b6b4f;        /* verde de placa de rodovia */
+  --accent-ink: #ffffff;
+  --accent-soft: #dcefe6;
+  --signal: #b77900;        /* âmbar de sinalização */
+  --signal-soft: #fbefd2;
+  --ok: #15803d; --ok-soft: #dcf3e3;
+  --warn: #a15c00; --warn-soft: #fdf0d9;
+  --danger: #b42318; --danger-soft: #fde4e1;
+  --info: #1d5fa8; --info-soft: #e0ecfa;
+  --shadow: 0 10px 30px rgba(20, 40, 30, .14);
+  --f-display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
+  --f-body: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1412; --surface: #171e1b; --sunken: #121815; --ink: #e5ebe7; --muted: #97a59e; --line: #2a3531;
+    --accent: #3cbf8e; --accent-ink: #06140e; --accent-soft: #173a2d;
+    --signal: #f0b43c; --signal-soft: #3a2d10;
+    --ok: #4ade80; --ok-soft: #143222; --warn: #f5b04a; --warn-soft: #3a2a10;
+    --danger: #f87171; --danger-soft: #3d1a17; --info: #7ab4f5; --info-soft: #172a40;
+    --shadow: 0 10px 30px rgba(0,0,0,.5);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1412; --surface: #171e1b; --sunken: #121815; --ink: #e5ebe7; --muted: #97a59e; --line: #2a3531;
+  --accent: #3cbf8e; --accent-ink: #06140e; --accent-soft: #173a2d;
+  --signal: #f0b43c; --signal-soft: #3a2d10;
+  --ok: #4ade80; --ok-soft: #143222; --warn: #f5b04a; --warn-soft: #3a2a10;
+  --danger: #f87171; --danger-soft: #3d1a17; --info: #7ab4f5; --info-soft: #172a40;
+  --shadow: 0 10px 30px rgba(0,0,0,.5);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.5; }
+h1, h2, h3 { font-family: var(--f-display); font-weight: 700; letter-spacing: .01em; line-height: 1.1; margin: 0; text-wrap: balance; }
+h1 { font-size: 2rem; }
+h2 { font-size: 1.35rem; }
+h3 { font-size: 1.1rem; }
+p { margin: 0; }
+button, input, select, textarea { font: inherit; color: inherit; }
+.mono { font-family: var(--f-mono); font-size: .85em; font-variant-numeric: tabular-nums; }
+.muted { color: var(--muted); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ---------- Shell ---------- */
+.app { display: grid; grid-template-columns: 240px minmax(0, 1fr); min-height: 100%; }
+.rail { background: var(--accent); color: var(--accent-ink); padding: 20px 14px; display: flex; flex-direction: column; gap: 20px; position: sticky; top: env(safe-area-inset-top, 0px); height: 100vh; }
+.brand { display: flex; align-items: center; gap: 10px; padding: 4px 6px; }
+.brand-mark { width: 34px; height: 34px; border: 2px solid currentColor; border-radius: 6px; display: grid; place-items: center; font-family: var(--f-display); font-size: 1.2rem; }
+.brand-name { font-family: var(--f-display); font-size: 1.45rem; line-height: 1; }
+.brand-sub { font-size: .72rem; letter-spacing: .12em; text-transform: uppercase; opacity: .8; }
+.nav { display: flex; flex-direction: column; gap: 2px; }
+.nav button { all: unset; cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 9px 12px; border-radius: 6px; font-weight: 500; }
+.nav button:hover { background: color-mix(in srgb, var(--accent-ink) 12%, transparent); }
+.nav button[aria-current="page"] { background: var(--accent-ink); color: var(--accent); font-weight: 600; }
+.nav button:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: 1px; }
+.nav .count { font-family: var(--f-mono); font-size: .75rem; opacity: .85; }
+.rail-foot { margin-top: auto; font-size: .78rem; opacity: .85; display: grid; gap: 8px; }
+.rail-foot button { all: unset; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+
+.main { min-width: 0; padding-inline: clamp(16px, 3vw, 40px); padding-block: 28px 60px; }
+.page-head { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: end; justify-content: space-between; margin-bottom: 22px; }
+.page-head .eyebrow { font-size: .72rem; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+.page-head p.lede { color: var(--muted); max-width: 62ch; margin-top: 6px; }
+.demo-flag { display: inline-flex; align-items: center; gap: 6px; font-size: .75rem; background: var(--signal-soft); color: var(--signal); padding: 3px 10px; border-radius: 999px; font-weight: 600; }
+
+/* ---------- Components ---------- */
+.btn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--surface); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 500; white-space: nowrap; }
+.btn:hover { border-color: var(--muted); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.danger { color: var(--danger); }
+.btn.sm { padding: 4px 10px; font-size: .85rem; }
+.btn.ghost { border-color: transparent; background: transparent; }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+.panel-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+.panel-body { padding: 16px; }
+.stack { display: grid; gap: 20px; }
+.grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.kpi { background: var(--surface); padding: 14px 16px; display: grid; gap: 2px; }
+.kpi .label { font-size: .75rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.kpi .value { font-family: var(--f-display); font-size: 2.1rem; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.kpi .note { font-size: .82rem; color: var(--muted); }
+.kpi.alert .value { color: var(--danger); }
+
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+th { font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 600; background: var(--sunken); white-space: nowrap; }
+tbody tr:hover { background: color-mix(in srgb, var(--accent-soft) 45%, transparent); }
+tbody tr:last-child td { border-bottom: 0; }
+td.right, th.right { text-align: right; }
+tr.is-inactive td { color: var(--muted); }
+
+.pill { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px; border-radius: 999px; font-size: .78rem; font-weight: 600; white-space: nowrap; background: var(--sunken); color: var(--muted); }
+.pill.ok { background: var(--ok-soft); color: var(--ok); }
+.pill.warn { background: var(--warn-soft); color: var(--warn); }
+.pill.danger { background: var(--danger-soft); color: var(--danger); }
+.pill.info { background: var(--info-soft); color: var(--info); }
+.pill.accent { background: var(--accent-soft); color: var(--accent); }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; display: inline-block; }
+
+/* Nível territorial: placa com borda, lembra sinalização */
+.lvl { display: inline-block; font-family: var(--f-display); font-size: .78rem; letter-spacing: .08em; padding: 1px 7px; border: 1.5px solid currentColor; border-radius: 3px; text-transform: uppercase; }
+.lvl.PAIS { color: var(--info); } .lvl.ESTADO { color: var(--signal); } .lvl.MUNICIPIO { color: var(--accent); } .lvl.BAIRRO { color: var(--muted); }
+
+.toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.search { flex: 1 1 220px; min-width: 0; }
+.field { display: grid; gap: 5px; min-width: 0; }
+.field label, .field .lbl { font-size: .82rem; font-weight: 600; }
+.field .hint { font-size: .78rem; color: var(--muted); }
+.field .err { font-size: .8rem; color: var(--danger); }
+input[type="text"], input[type="email"], input[type="number"], input[type="date"], input[type="time"], input[type="password"], input[type="search"], select, textarea {
+  width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); min-width: 0;
+}
+input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: var(--accent); }
+input[aria-invalid="true"] { border-color: var(--danger); }
+.form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.form-grid .full { grid-column: 1 / -1; }
+.check { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.check input { width: 16px; height: 16px; accent-color: var(--accent); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; flex-wrap: wrap; }
+.seg button { border: 0; background: var(--surface); padding: 7px 12px; cursor: pointer; font-weight: 500; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px; font-size: .85rem; background: var(--surface); }
+
+.empty { padding: 28px 16px; text-align: center; color: var(--muted); }
+.callout { border: 1px solid var(--line); border-left: 4px solid var(--signal); background: var(--signal-soft); border-radius: 6px; padding: 10px 12px; font-size: .9rem; }
+.callout.danger { border-left-color: var(--danger); background: var(--danger-soft); }
+.callout.ok { border-left-color: var(--ok); background: var(--ok-soft); }
+
+/* Autocomplete de território */
+.ac { position: relative; }
+.ac-list { position: absolute; z-index: 5; left: 0; right: 0; top: calc(100% + 4px); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; box-shadow: var(--shadow); max-height: 260px; overflow-y: auto; margin: 0; padding: 4px; list-style: none; }
+.ac-list li { display: flex; gap: 10px; align-items: center; padding: 7px 8px; border-radius: 4px; cursor: pointer; }
+.ac-list li[aria-selected="true"], .ac-list li:hover { background: var(--accent-soft); }
+.ac-list .path { color: var(--muted); font-size: .82rem; }
+
+/* Cadeia de precedência do tempo */
+.chain { display: grid; gap: 6px; }
+.chain-step { display: grid; grid-template-columns: 110px minmax(0,1fr) auto; gap: 10px; align-items: center; padding: 8px 10px; border: 1px dashed var(--line); border-radius: 6px; color: var(--muted); }
+.chain-step.hit { border: 1.5px solid var(--accent); background: var(--accent-soft); color: var(--ink); }
+.chain-step.shadowed { opacity: .75; }
+.chain-step .mins { font-family: var(--f-mono); }
+
+/* Dialog */
+dialog { border: 1px solid var(--line); border-radius: 10px; padding: 0; background: var(--surface); color: var(--ink); width: min(640px, calc(100vw - 32px)); box-shadow: var(--shadow); }
+dialog::backdrop { background: rgba(10, 20, 15, .45); }
+.dlg-head { padding: 16px 18px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; gap: 10px; align-items: center; }
+.dlg-body { padding: 18px; display: grid; gap: 14px; max-height: 70vh; overflow-y: auto; }
+.dlg-foot { padding: 12px 18px; border-top: 1px solid var(--line); display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+
+.toast { position: fixed; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); right: 20px; left: auto; background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 6px; box-shadow: var(--shadow); font-weight: 500; transform: translateY(20px); opacity: 0; transition: .2s; pointer-events: none; max-width: calc(100vw - 40px); }
+.toast.show { transform: none; opacity: 1; }
+
+.req-list { display: grid; gap: 0; }
+.req { display: grid; grid-template-columns: 64px minmax(0,1fr) auto; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); align-items: baseline; }
+.req:last-child { border-bottom: 0; }
+.req .id { font-family: var(--f-mono); font-size: .82rem; color: var(--accent); font-weight: 500; }
+.req .src { font-family: var(--f-mono); font-size: .75rem; color: var(--muted); white-space: nowrap; }
+
+.bar { height: 8px; background: var(--sunken); border-radius: 4px; overflow: hidden; }
+.bar > span { display: block; height: 100%; background: var(--accent); }
+
+@media (max-width: 980px) {
+  .grid-3 { grid-template-columns: minmax(0,1fr); }
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 820px) {
+  .app { grid-template-columns: minmax(0, 1fr); }
+  .rail { position: sticky; top: env(safe-area-inset-top, 0px); height: auto; z-index: 10; padding: 10px 16px; gap: 8px; }
+  .brand-sub, .rail-foot { display: none; }
+  .nav { flex-direction: row; overflow-x: auto; scrollbar-width: none; gap: 4px; }
+  .nav button { white-space: nowrap; padding: 7px 10px; }
+  .nav .count { display: none; }
+  .grid-2 { grid-template-columns: minmax(0,1fr); }
+  .form-grid { grid-template-columns: minmax(0,1fr); }
+  .chain-step { grid-template-columns: 90px minmax(0,1fr) auto; }
+  .req { grid-template-columns: 52px minmax(0,1fr); }
+  .req .src { grid-column: 2; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="app">
+  <aside class="rail">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">R</div>
+      <div>
+        <div class="brand-name">App Rota</div>
+        <div class="brand-sub">Módulo do gestor</div>
+      </div>
+    </div>
+    <nav class="nav" id="nav" aria-label="Seções"></nav>
+    <div class="rail-foot">
+      <div>Sportline (empresa fictícia)<br>Segmento: vestuário esportivo</div>
+      <button type="button" id="resetBtn">Restaurar dados de exemplo</button>
+    </div>
+  </aside>
+  <main class="main" id="main"></main>
+</div>
+
+<dialog id="dlg"></dialog>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+/* ============================================================
+   Dados fictícios (espelham rota.* do script PostgreSQL)
+   ============================================================ */
+const TODAY = "2026-09-29";
+const ESTADOS = [
+  { id: 33, uf: "RJ", nome: "Rio de Janeiro" }, { id: 26, uf: "PE", nome: "Pernambuco" },
+  { id: 53, uf: "DF", nome: "Distrito Federal" }, { id: 35, uf: "SP", nome: "São Paulo" },
+  { id: 31, uf: "MG", nome: "Minas Gerais" }
+];
+const MUNICIPIOS = [
+  { id: 3301900, estado: 33, nome: "Itaboraí", pop: 224267, q: true },
+  { id: 3303302, estado: 33, nome: "Niterói", pop: 481758, q: true },
+  { id: 3304904, estado: 33, nome: "São Gonçalo", pop: 896744, q: true },
+  { id: 3304557, estado: 33, nome: "Rio de Janeiro", pop: 6211223, q: true },
+  { id: 3302700, estado: 33, nome: "Maricá", pop: 197300, q: false },
+  { id: 3305752, estado: 33, nome: "Tanguá", pop: 34000, q: false },
+  { id: 3304300, estado: 33, nome: "Rio Bonito", pop: 60573, q: true },
+  { id: 3300803, estado: 33, nome: "Cachoeiras de Macacu", pop: 56943, q: false },
+  { id: 2611606, estado: 26, nome: "Recife", pop: 1488920, q: true },
+  { id: 2609600, estado: 26, nome: "Olinda", pop: 349976, q: true },
+  { id: 2607901, estado: 26, nome: "Jaboatão dos Guararapes", pop: 643759, q: true },
+  { id: 2604106, estado: 26, nome: "Caruaru", pop: 378052, q: true },
+  { id: 5300108, estado: 53, nome: "Brasília", pop: 2817381, q: true },
+  { id: 3550308, estado: 35, nome: "São Paulo", pop: 11451999, q: true },
+  { id: 3509502, estado: 35, nome: "Campinas", pop: 1139047, q: true },
+  { id: 3548500, estado: 35, nome: "Santos", pop: 418608, q: true },
+  { id: 3106200, estado: 31, nome: "Belo Horizonte", pop: 2315560, q: true },
+  { id: 3136702, estado: 31, nome: "Juiz de Fora", pop: 540756, q: true }
+];
+const BAIRROS = [
+  [1, 3301900, "Centro"], [2, 3301900, "Manilha"], [3, 3301900, "Venda das Pedras"], [4, 3301900, "Outeiro das Pedras"],
+  [5, 2611606, "Boa Viagem"], [6, 2611606, "Casa Forte"], [7, 2611606, "Espinheiro"], [8, 2611606, "Pina"],
+  [9, 3303302, "Icaraí"], [10, 3303302, "Centro"], [11, 3303302, "Santa Rosa"],
+  [12, 3304557, "Copacabana"], [13, 3304557, "Tijuca"], [14, 3304557, "Barra da Tijuca"], [15, 3304557, "Madureira"],
+  [16, 3550308, "Moema"], [17, 3550308, "Pinheiros"], [18, 3550308, "Tatuapé"]
+].map(([id, municipio, nome]) => ({ id, municipio, nome }));
+
+const PERFIL = { GESTOR: "Gestor", REPRESENTANTE: "Representante" };
+const NIVEIS = ["PAIS", "ESTADO", "MUNICIPIO", "BAIRRO"];
+const NIVEL_LABEL = { PAIS: "País", ESTADO: "Estado", MUNICIPIO: "Município", BAIRRO: "Bairro" };
+const DIMS = ["LOJA", "FUNCIONARIO", "BAIRRO", "MUNICIPIO", "ESTADO", "GLOBAL"];
+const DIM_LABEL = { LOJA: "Loja", FUNCIONARIO: "Funcionário", BAIRRO: "Bairro", MUNICIPIO: "Município", ESTADO: "Estado", GLOBAL: "Global" };
+const QUAL = { NAO_QUALIFICADA: ["Não qualificada", ""], GOOD: ["Good", "info"], VERY_GOOD: ["Very good", "accent"], BEST: ["Best", "ok"] };
+
+function seed() {
+  return {
+    funcionarios: [
+      { id: 1, nome: "Helena Castro", cpf: "11122233344", email: "helena@sportline.example", tel: "(21) 99811-0001", perfil: "GESTOR", cargo: "Gerente Regional", cep: "24800000", ativo: true, adm: "2024-02-01" },
+      { id: 2, nome: "Marcos Tavares", cpf: "22233344455", email: "marcos@sportline.example", tel: "(21) 99811-0002", perfil: "REPRESENTANTE", cargo: "Representante", cep: "24800010", ativo: true, adm: "2024-05-10" },
+      { id: 3, nome: "Juliana Freitas", cpf: "33344455566", email: "juliana@sportline.example", tel: "(81) 99722-0003", perfil: "REPRESENTANTE", cargo: "Representante Sênior", cep: "51020000", ativo: true, adm: "2023-11-20" },
+      { id: 4, nome: "Carla Menezes", cpf: "44455566677", email: "carla@sportline.example", tel: "(21) 99633-0004", perfil: "REPRESENTANTE", cargo: "Representante", cep: "24440000", ativo: true, adm: "2025-01-15" },
+      { id: 5, nome: "Renata Dias", cpf: "55566677788", email: "renata@sportline.example", tel: "(21) 99544-0005", perfil: "REPRESENTANTE", cargo: "Representante", cep: "24220000", ativo: true, adm: "2025-06-02" },
+      { id: 6, nome: "Paulo Siqueira", cpf: "66677788899", email: "paulo@sportline.example", tel: "(61) 99455-0006", perfil: "REPRESENTANTE", cargo: "Representante", cep: "70040000", ativo: true, adm: "2024-08-19" },
+      { id: 7, nome: "Beatriz Lopes", cpf: "77788899900", email: "beatriz@sportline.example", tel: "(11) 99366-0007", perfil: "REPRESENTANTE", cargo: "Representante Sênior", cep: "04077000", ativo: true, adm: "2023-03-06" },
+      { id: 8, nome: "Tiago Rocha", cpf: "88899900011", email: "tiago@sportline.example", tel: "(31) 99277-0008", perfil: "REPRESENTANTE", cargo: "Representante", cep: "30130000", ativo: true, adm: "2025-09-01" },
+      { id: 9, nome: "Felipe Nunes", cpf: "99900011122", email: "felipe@sportline.example", tel: "(21) 99188-0009", perfil: "REPRESENTANTE", cargo: "Representante", cep: "20040000", ativo: false, adm: "2022-07-11" }
+    ],
+    territorios: [
+      { id: 1, func: 2, nivel: "MUNICIPIO", ref: 3301900, ini: "2025-01-01", fim: null },
+      { id: 2, func: 2, nivel: "MUNICIPIO", ref: 3305752, ini: "2025-01-01", fim: null },
+      { id: 3, func: 2, nivel: "MUNICIPIO", ref: 3304300, ini: "2025-01-01", fim: null },
+      { id: 4, func: 3, nivel: "ESTADO", ref: 26, ini: "2024-01-01", fim: null },
+      { id: 5, func: 4, nivel: "MUNICIPIO", ref: 3304904, ini: "2025-02-01", fim: null },
+      { id: 6, func: 5, nivel: "BAIRRO", ref: 9, ini: "2025-06-02", fim: null },
+      { id: 7, func: 5, nivel: "BAIRRO", ref: 10, ini: "2025-06-02", fim: null },
+      { id: 8, func: 6, nivel: "ESTADO", ref: 53, ini: "2024-09-01", fim: null },
+      { id: 9, func: 7, nivel: "MUNICIPIO", ref: 3550308, ini: "2023-04-01", fim: null },
+      { id: 10, func: 7, nivel: "MUNICIPIO", ref: 3548500, ini: "2023-04-01", fim: null },
+      { id: 11, func: 8, nivel: "MUNICIPIO", ref: 3106200, ini: "2025-09-01", fim: null },
+      { id: 12, func: 9, nivel: "MUNICIPIO", ref: 3304557, ini: "2022-08-01", fim: "2026-08-31" }
+    ],
+    marcas: [
+      { id: 1, nome: "Adidas", q: true }, { id: 2, nome: "Nike", q: true }, { id: 3, nome: "Fila", q: true },
+      { id: 4, nome: "Puma", q: true }, { id: 5, nome: "Olympikus", q: false }, { id: 6, nome: "Mizuno", q: true }
+    ],
+    lojas: [
+      { id: 1, cod: "C-0001", nome: "Arena Esportes", mun: 3301900, bairro: 1, status: "ATIVO", ticket: 8500, marcas: [1, 2, 3], ativo: true },
+      { id: 2, cod: "C-0002", nome: "Manilha Sport Center", mun: 3301900, bairro: 2, status: "JOURNEY", ticket: 4200, marcas: [2, 5], ativo: true },
+      { id: 3, cod: "C-0003", nome: "Pedras Atleta", mun: 3301900, bairro: 3, status: "PROSPECCAO", ticket: 2100, marcas: [5], ativo: true },
+      { id: 4, cod: "C-0004", nome: "Icaraí Runner", mun: 3303302, bairro: 9, status: "ATIVO", ticket: 12600, marcas: [1, 2, 4, 6], ativo: true },
+      { id: 5, cod: "C-0005", nome: "Niterói Fit Store", mun: 3303302, bairro: 11, status: "NOVO", ticket: 5300, marcas: [1, 4], ativo: true },
+      { id: 6, cod: "C-0006", nome: "SG Esportes", mun: 3304904, bairro: null, status: "ATIVO", ticket: 6900, marcas: [2, 3], ativo: true },
+      { id: 7, cod: "C-0007", nome: "Tijuca Performance", mun: 3304557, bairro: 13, status: "REATIVACAO", ticket: 9800, marcas: [1, 2, 3, 4], ativo: true },
+      { id: 8, cod: "C-0008", nome: "Barra Sports Lab", mun: 3304557, bairro: 14, status: "ATIVO", ticket: 15400, marcas: [1, 2, 6], ativo: true },
+      { id: 9, cod: "C-0009", nome: "Maricá Surf & Sport", mun: 3302700, bairro: null, status: "PROSPECCAO", ticket: 1800, marcas: [4], ativo: true },
+      { id: 10, cod: "C-0010", nome: "Boa Viagem Sports", mun: 2611606, bairro: 5, status: "JOURNEY", ticket: 7700, marcas: [2], ativo: true },
+      { id: 11, cod: "C-0011", nome: "Casa Forte Atletismo", mun: 2611606, bairro: 6, status: "ATIVO", ticket: 11200, marcas: [1, 2, 3], ativo: true },
+      { id: 12, cod: "C-0012", nome: "Caruaru Esporte Total", mun: 2604106, bairro: null, status: "NOVO", ticket: 3900, marcas: [3, 5], ativo: true },
+      { id: 13, cod: "C-0013", nome: "Plano Piloto Sports", mun: 5300108, bairro: null, status: "ATIVO", ticket: 10100, marcas: [1, 2], ativo: true },
+      { id: 14, cod: "C-0014", nome: "Moema Run Club", mun: 3550308, bairro: 16, status: "ATIVO", ticket: 18300, marcas: [1, 2, 4, 6], ativo: true },
+      { id: 15, cod: "C-0015", nome: "Campinas Sport Hall", mun: 3509502, bairro: null, status: "PROSPECCAO", ticket: 6400, marcas: [1, 3], ativo: true },
+      { id: 16, cod: "C-0016", nome: "Savassi Atletas", mun: 3106200, bairro: null, status: "ATIVO", ticket: 8800, marcas: [2, 6], ativo: true },
+      { id: 17, cod: "C-0017", nome: "JF Esportes", mun: 3136702, bairro: null, status: "INATIVO", ticket: 2500, marcas: [], ativo: false }
+    ],
+    tempos: [
+      { id: 1, dim: "GLOBAL", ref: null, min: 120, obs: "Média do segmento vestuário" },
+      { id: 2, dim: "FUNCIONARIO", ref: 2, min: 60, obs: "Vendedor experiente, fecha pedido mais rápido" },
+      { id: 3, dim: "ESTADO", ref: 26, min: 150, obs: "Lojas maiores, pedidos de coleção completa" },
+      { id: 4, dim: "LOJA", ref: 14, min: 180, obs: "Loja-conceito: apresentação completa da coleção" },
+      { id: 5, dim: "BAIRRO", ref: 9, min: 90, obs: "" }
+    ],
+    status: [
+      { id: 1, cod: "ATIVO", desc: "Ativo", cor: "ok", sys: true, ativo: true },
+      { id: 2, cod: "INATIVO", desc: "Inativo", cor: "", sys: true, ativo: true },
+      { id: 3, cod: "NOVO", desc: "Novo", cor: "info", sys: true, ativo: true },
+      { id: 4, cod: "REATIVACAO", desc: "Reativação", cor: "warn", sys: true, ativo: true },
+      { id: 5, cod: "JOURNEY", desc: "Journey (pulou uma coleção)", cor: "accent", sys: true, ativo: true },
+      { id: 6, cod: "PROSPECCAO", desc: "Prospecção", cor: "info", sys: true, ativo: true }
+    ],
+    motivos: [
+      { id: 1, tipo: "NAO_VISITA", desc: "Visita reagendada pelo cliente", sys: true, livre: false, ativo: true },
+      { id: 2, tipo: "NAO_VISITA", desc: "Reagendada pelo vendedor", sys: true, livre: false, ativo: true },
+      { id: 3, tipo: "NAO_VISITA", desc: "Logística", sys: true, livre: false, ativo: true },
+      { id: 4, tipo: "NAO_VISITA", desc: "Estrada / condição de tráfego", sys: true, livre: false, ativo: true },
+      { id: 5, tipo: "NAO_VISITA", desc: "Clima", sys: true, livre: false, ativo: true },
+      { id: 6, tipo: "NAO_VISITA", desc: "Loja fechada", sys: true, livre: false, ativo: true },
+      { id: 7, tipo: "NAO_VISITA", desc: "Imprevisto", sys: true, livre: false, ativo: true },
+      { id: 8, tipo: "NAO_VISITA", desc: "Outros", sys: true, livre: true, ativo: true },
+      { id: 9, tipo: "NAO_VENDA", desc: "Estoque cheio", sys: true, livre: false, ativo: true },
+      { id: 10, tipo: "NAO_VENDA", desc: "Não aceitou o prazo de pagamento", sys: true, livre: false, ativo: true },
+      { id: 11, tipo: "NAO_VENDA", desc: "Não aceitou o markup", sys: true, livre: false, ativo: true },
+      { id: 12, tipo: "NAO_VENDA", desc: "Decisor ausente", sys: true, livre: false, ativo: true },
+      { id: 13, tipo: "NAO_VENDA", desc: "Problema pessoal/familiar do cliente", sys: true, livre: false, ativo: true },
+      { id: 14, tipo: "NAO_VENDA", desc: "Outros", sys: true, livre: true, ativo: true },
+      { id: 15, tipo: "NAO_VENDA", desc: "Coleção chegou atrasada no pedido anterior", sys: false, livre: false, ativo: true }
+    ],
+    params: { semanas: 12, visitasDia: 2, diasViagem: 2, limite: "MUNICIPIO", horaIni: "08:00", horaLimite: "19:00", intervalo: 30, soQualificadas: true, custoKm: 1.10, hosp: 180, alim: 90, raio: 10 },
+    ia: { provedor: "ANTHROPIC", modelo: "claude-sonnet", ident: "ti@sportline.example", chave: "sk-ant-••••••••3f9a", esforco: "medio", validada: "2026-09-27" }
+  };
+}
+
+/* ============================================================
+   Estado (salvo só neste navegador, por conveniência)
+   ============================================================ */
+const KEY = "app-rota-gestor-v1";
+let S;
+try { S = JSON.parse(localStorage.getItem(KEY)) || seed(); } catch { S = seed(); }
+function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch {} }
+const nextId = arr => arr.reduce((m, x) => Math.max(m, x.id), 0) + 1;
+
+/* ============================================================
+   Utilitários
+   ============================================================ */
+const $ = (sel, root = document) => root.querySelector(sel);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const norm = s => String(s).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+const fmtDate = d => d ? d.split("-").reverse().join("/") : "—";
+const fmtCep = c => c ? c.replace(/^(\d{5})(\d{3})$/, "$1-$2") : "—";
+const fmtCpf = c => c ? c.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, "$1.$2.$3-$4") : "—";
+const fmtMin = m => m >= 60 ? `${Math.floor(m / 60)}h${m % 60 ? String(m % 60).padStart(2, "0") : ""}` : `${m} min`;
+const brl = v => Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const fmtInt = v => Number(v).toLocaleString("pt-BR");
+
+const estado = id => ESTADOS.find(e => e.id === id);
+const municipio = id => MUNICIPIOS.find(m => m.id === id);
+const bairro = id => BAIRROS.find(b => b.id === id);
+const func = id => S.funcionarios.find(f => f.id === id);
+const loja = id => S.lojas.find(l => l.id === id);
+
+// Hierarquia completa de um território: { nivel, pais, estado, municipio, bairro }
+function hier(nivel, ref) {
+  if (nivel === "PAIS") return { nivel, pais: 1058 };
+  if (nivel === "ESTADO") return { nivel, pais: 1058, estado: ref };
+  if (nivel === "MUNICIPIO") return { nivel, pais: 1058, estado: municipio(ref).estado, municipio: ref };
+  const b = bairro(ref); return { nivel, pais: 1058, estado: municipio(b.municipio).estado, municipio: b.municipio, bairro: ref };
+}
+function terrName(nivel, ref) {
+  if (nivel === "PAIS") return "Brasil";
+  if (nivel === "ESTADO") { const e = estado(ref); return `${e.nome} (${e.uf})`; }
+  if (nivel === "MUNICIPIO") { const m = municipio(ref); return `${m.nome} / ${estado(m.estado).uf}`; }
+  const b = bairro(ref), m = municipio(b.municipio); return `${b.nome}, ${m.nome} / ${estado(m.estado).uf}`;
+}
+// Mesma regra do trigger fn_funcionario_territorio_validar
+function overlaps(a, b) {
+  if (a.nivel === "PAIS" || b.nivel === "PAIS") return true;
+  if (a.estado !== b.estado) return false;
+  if (a.nivel === "ESTADO" || b.nivel === "ESTADO") return true;
+  if (a.municipio !== b.municipio) return false;
+  if (a.nivel === "MUNICIPIO" || b.nivel === "MUNICIPIO") return true;
+  return a.bairro === b.bairro;
+}
+const periodsOverlap = (i1, f1, i2, f2) => i1 <= (f2 || "9999-12-31") && i2 <= (f1 || "9999-12-31");
+const isVigente = t => t.ini <= TODAY && (!t.fim || t.fim >= TODAY);
+function findConflict(cand, ignoreId) {
+  const h = hier(cand.nivel, cand.ref);
+  return S.territorios.find(t => t.id !== ignoreId && periodsOverlap(t.ini, t.fim, cand.ini, cand.fim) && overlaps(h, hier(t.nivel, t.ref)));
+}
+function responsaveisMunicipio(mid) {
+  const h = hier("MUNICIPIO", mid);
+  return S.territorios.filter(t => isVigente(t) && overlaps(h, hier(t.nivel, t.ref)))
+    .map(t => ({ t, f: func(t.func) }));
+}
+function qualificacao(l) {
+  const n = l.marcas.filter(id => S.marcas.find(m => m.id === id)?.q).length;
+  return n >= 3 ? "BEST" : n === 2 ? "VERY_GOOD" : n === 1 ? "GOOD" : "NAO_QUALIFICADA";
+}
+const qualPill = q => `<span class="pill ${QUAL[q][1]}">${QUAL[q][0]}</span>`;
+function statusPill(cod) {
+  const s = S.status.find(x => x.cod === cod);
+  return s ? `<span class="pill ${s.cor}"><span class="dot"></span>${esc(s.desc)}</span>` : "—";
+}
+// Mesma regra de fn_tempo_atendimento
+function resolveTempo(lojaId, funcId) {
+  const l = loja(lojaId), m = municipio(l.mun);
+  const target = { LOJA: l.id, FUNCIONARIO: funcId, BAIRRO: l.bairro, MUNICIPIO: l.mun, ESTADO: m.estado, GLOBAL: null };
+  const steps = DIMS.map(dim => ({ dim, rule: S.tempos.find(t => t.dim === dim && (dim === "GLOBAL" || (target[dim] != null && t.ref === target[dim]))) }));
+  const hit = steps.find(s => s.rule);
+  return { steps, hit };
+}
+function tempoRefName(t) {
+  switch (t.dim) {
+    case "GLOBAL": return "Todas as visitas";
+    case "ESTADO": case "MUNICIPIO": case "BAIRRO": return terrName(t.dim, t.ref);
+    case "FUNCIONARIO": return func(t.ref)?.nome ?? "—";
+    case "LOJA": { const l = loja(t.ref); return l ? `${l.nome} (${l.cod})` : "—"; }
+  }
+}
+
+let toastTimer;
+function toast(msg) {
+  const el = $("#toast"); el.textContent = msg; el.classList.add("show");
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove("show"), 2600);
+}
+
+/* ============================================================
+   Diálogo genérico
+   ============================================================ */
+const dlg = $("#dlg");
+function openDialog({ title, body, submitLabel = "Salvar", danger = false, onSubmit, onOpen }) {
+  dlg.innerHTML = `<form method="dialog" id="dlgForm" novalidate>
+    <div class="dlg-head"><h2>${esc(title)}</h2><button type="button" class="btn ghost sm" data-close aria-label="Fechar">Fechar</button></div>
+    <div class="dlg-body">${body}<div id="dlgErr" class="callout danger" hidden></div></div>
+    <div class="dlg-foot"><button type="button" class="btn" data-close>Cancelar</button>
+    <button type="submit" class="btn ${danger ? "danger" : "primary"}">${esc(submitLabel)}</button></div></form>`;
+  dlg.querySelectorAll("[data-close]").forEach(b => b.onclick = () => dlg.close());
+  $("#dlgForm").onsubmit = e => {
+    e.preventDefault();
+    const err = onSubmit(new FormData(e.target), e.target);
+    if (err) { const box = $("#dlgErr"); box.innerHTML = err; box.hidden = false; return; }
+    dlg.close(); save(); render();
+  };
+  dlg.showModal();
+  onOpen && onOpen(dlg);
+}
+function confirmDialog(title, text, label, fn) {
+  openDialog({ title, body: `<p>${text}</p>`, submitLabel: label, danger: true, onSubmit: () => { fn(); } });
+}
+
+/* ============================================================
+   Navegação
+   ============================================================ */
+const PAGES = [
+  ["visao", "Visão geral"], ["funcionarios", "Funcionários"], ["territorios", "Territórios"], ["lojas", "Lojas"],
+  ["tempo", "Tempo de atendimento"], ["status", "Status e motivos"], ["parametros", "Parâmetros de rota"], ["requisitos", "Requisitos"]
+];
+let page = (location.hash || "").slice(1);
+if (!PAGES.some(p => p[0] === page)) { try { page = localStorage.getItem(KEY + ":page") || "visao"; } catch { page = "visao"; } }
+function go(p) { page = p; try { localStorage.setItem(KEY + ":page", p); } catch {} render(); $("#main").scrollTop = 0; window.scrollTo(0, 0); }
+
+function renderNav() {
+  const counts = {
+    funcionarios: S.funcionarios.filter(f => f.ativo).length,
+    territorios: S.territorios.filter(isVigente).length,
+    lojas: S.lojas.length
+  };
+  $("#nav").innerHTML = PAGES.map(([id, label]) =>
+    `<button type="button" data-page="${id}" ${id === page ? 'aria-current="page"' : ""}><span>${label}</span>${counts[id] != null ? `<span class="count">${counts[id]}</span>` : ""}</button>`).join("");
+  $("#nav").querySelectorAll("button").forEach(b => b.onclick = () => go(b.dataset.page));
+}
+function head(eyebrow, title, lede, actions = "") {
+  return `<div class="page-head"><div><div class="eyebrow">${eyebrow}</div><h1>${title}</h1>${lede ? `<p class="lede">${lede}</p>` : ""}</div><div class="actions">${actions}</div></div>`;
+}
+
+/* ============================================================
+   Página: Visão geral
+   ============================================================ */
+function pageVisao() {
+  const reps = S.funcionarios.filter(f => f.ativo && f.perfil === "REPRESENTANTE");
+  const munComLoja = [...new Set(S.lojas.filter(l => l.ativo).map(l => l.mun))].map(municipio);
+  const rows = munComLoja.map(m => ({ m, resp: responsaveisMunicipio(m.id), lojas: S.lojas.filter(l => l.ativo && l.mun === m.id) }))
+    .sort((a, b) => (a.resp.length > 0) - (b.resp.length > 0) || a.m.nome.localeCompare(b.m.nome));
+  const semVend = rows.filter(r => !r.resp.length);
+  const semTerr = reps.filter(f => !S.territorios.some(t => t.func === f.id && isVigente(t)));
+  const qCount = { BEST: 0, VERY_GOOD: 0, GOOD: 0, NAO_QUALIFICADA: 0 };
+  S.lojas.filter(l => l.ativo).forEach(l => qCount[qualificacao(l)]++);
+  const totalL = S.lojas.filter(l => l.ativo).length;
+  const cobert = rows.length ? Math.round(100 * (rows.length - semVend.length) / rows.length) : 0;
+
+  return head("Painel do gestor", "Cobertura da operação", "Municípios com lojas ativas e quem responde por cada um. O que aparece como sem vendedor precisa de um responsável.", '<span class="demo-flag">Dados fictícios</span>') + `
+  <div class="stack">
+    <div class="kpis">
+      <div class="kpi"><span class="label">Representantes ativos</span><span class="value">${reps.length}</span><span class="note">${semTerr.length ? `${semTerr.length} sem território` : "todos com território"}</span></div>
+      <div class="kpi"><span class="label">Municípios cobertos</span><span class="value">${rows.length - semVend.length}/${rows.length}</span><div class="bar" aria-hidden="true"><span style="width:${cobert}%"></span></div></div>
+      <div class="kpi alert"><span class="label">Sem vendedor</span><span class="value">${semVend.length}</span><span class="note">municípios com loja sem responsável</span></div>
+      <div class="kpi"><span class="label">Tempo global</span><span class="value">${fmtMin(S.tempos.find(t => t.dim === "GLOBAL").min)}</span><span class="note">${S.tempos.length - 1} exceções cadastradas</span></div>
+    </div>
+    <div class="grid-2">
+      <section class="panel">
+        <div class="panel-head"><h2>Municípios com lojas</h2><span class="muted">${rows.length} municípios</span></div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Município</th><th class="right">Lojas</th><th>Responsável</th><th></th></tr></thead>
+          <tbody>${rows.map(r => `<tr>
+            <td>${esc(r.m.nome)} <span class="muted">/ ${estado(r.m.estado).uf}</span>${r.m.q ? "" : ' <span class="pill warn" title="Não atende ao critério PIB x população">não qualificada</span>'}</td>
+            <td class="right">${r.lojas.length}</td>
+            <td>${r.resp.length ? r.resp.map(x => `${esc(x.f.nome)} <span class="lvl ${x.t.nivel}">${NIVEL_LABEL[x.t.nivel]}</span>`).join("<br>") : '<span class="pill danger">Sem vendedor</span>'}</td>
+            <td class="right">${r.resp.length ? "" : `<button class="btn sm" data-assign="${r.m.id}">Atribuir</button>`}</td>
+          </tr>`).join("")}</tbody></table></div>
+      </section>
+      <div class="stack">
+        <section class="panel">
+          <div class="panel-head"><h2>Qualificação das lojas</h2><span class="muted">${totalL} lojas ativas</span></div>
+          <div class="panel-body" style="display:grid;gap:10px">
+            ${["BEST", "VERY_GOOD", "GOOD", "NAO_QUALIFICADA"].map(q => `
+              <div style="display:grid;grid-template-columns:130px minmax(0,1fr) 32px;gap:10px;align-items:center">
+                ${qualPill(q)}<div class="bar"><span style="width:${totalL ? 100 * qCount[q] / totalL : 0}%"></span></div><span class="mono" style="text-align:right">${qCount[q]}</span>
+              </div>`).join("")}
+            <p class="muted" style="font-size:.85rem">Regra: 1 marca qualificada = good, 2 = very good, 3 ou mais = best.</p>
+          </div>
+        </section>
+        <section class="panel">
+          <div class="panel-head"><h2>Pendências</h2></div>
+          <div class="panel-body" style="display:grid;gap:10px">
+            ${semTerr.length ? `<div class="callout">${semTerr.map(f => esc(f.nome)).join(", ")} ${semTerr.length > 1 ? "estão" : "está"} ativo(s) sem território vigente.</div>` : ""}
+            ${semVend.length ? `<div class="callout danger">${semVend.length} município(s) com loja sem vendedor: ${semVend.map(r => esc(r.m.nome)).join(", ")}.</div>` : '<div class="callout ok">Todos os municípios com loja têm responsável.</div>'}
+            ${S.ia ? `<div class="callout ok">Conta de IA conectada (${S.ia.provedor === "ANTHROPIC" ? "Claude" : S.ia.provedor === "OPENAI" ? "GPT" : "outro"}), validada em ${fmtDate(S.ia.validada)}.</div>` : '<div class="callout danger">Nenhuma conta de IA cadastrada. O uso do sistema depende dela.</div>'}
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ============================================================
+   Página: Funcionários
+   ============================================================ */
+let fFilter = { q: "", status: "ativos" };
+function pageFuncionarios() {
+  const list = S.funcionarios.filter(f =>
+    (fFilter.status === "todos" || (fFilter.status === "ativos") === f.ativo) &&
+    (!fFilter.q || norm(f.nome + f.email + f.cpf).includes(norm(fFilter.q))));
+  return head("Cadastro", "Funcionários", "Gestores e representantes da empresa. O e-mail é o login no aplicativo; o CEP é o ponto de partida padrão das rotas.",
+    '<button class="btn primary" id="newFunc">Novo funcionário</button>') + `
+  <section class="panel">
+    <div class="panel-head">
+      <div class="toolbar" style="flex:1">
+        <input type="search" class="search" id="fq" placeholder="Buscar por nome, e-mail ou CPF" value="${esc(fFilter.q)}" aria-label="Buscar funcionário">
+        <div class="seg" role="group" aria-label="Situação">
+          ${[["ativos", "Ativos"], ["inativos", "Inativos"], ["todos", "Todos"]].map(([v, l]) => `<button type="button" data-fs="${v}" aria-pressed="${fFilter.status === v}">${l}</button>`).join("")}
+        </div>
+      </div>
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Nome</th><th>Perfil</th><th>Contato</th><th>CEP partida</th><th>Territórios vigentes</th><th>Situação</th><th></th></tr></thead>
+      <tbody>${list.length ? list.map(f => {
+        const ts = S.territorios.filter(t => t.func === f.id && isVigente(t));
+        return `<tr class="${f.ativo ? "" : "is-inactive"}">
+          <td><strong>${esc(f.nome)}</strong><br><span class="muted mono">${fmtCpf(f.cpf)}</span></td>
+          <td>${PERFIL[f.perfil]}<br><span class="muted">${esc(f.cargo)}</span></td>
+          <td>${esc(f.email)}<br><span class="muted">${esc(f.tel)}</span></td>
+          <td class="mono">${fmtCep(f.cep)}</td>
+          <td>${ts.length ? `<div class="chips">${ts.map(t => `<span class="chip"><span class="lvl ${t.nivel}">${NIVEL_LABEL[t.nivel][0]}</span>${esc(terrName(t.nivel, t.ref))}</span>`).join("")}</div>` : f.perfil === "GESTOR" ? '<span class="muted">—</span>' : '<span class="pill warn">Nenhum</span>'}</td>
+          <td>${f.ativo ? '<span class="pill ok">Ativo</span>' : '<span class="pill">Inativo</span>'}</td>
+          <td class="right"><div class="actions" style="justify-content:flex-end">
+            <button class="btn sm" data-edit="${f.id}">Editar</button>
+            <button class="btn sm ${f.ativo ? "danger" : ""}" data-toggle="${f.id}">${f.ativo ? "Inativar" : "Reativar"}</button></div></td>
+        </tr>`;
+      }).join("") : `<tr><td colspan="7" class="empty">Nenhum funcionário encontrado com esse filtro.</td></tr>`}</tbody>
+    </table></div>
+  </section>`;
+}
+function funcForm(f = {}) {
+  return `<div class="form-grid">
+    <div class="field full"><label for="f_nome">Nome completo</label><input type="text" id="f_nome" name="nome" required value="${esc(f.nome)}"></div>
+    <div class="field"><label for="f_cpf">CPF</label><input type="text" id="f_cpf" name="cpf" inputmode="numeric" placeholder="Somente números" value="${esc(f.cpf)}"></div>
+    <div class="field"><label for="f_email">E-mail (login)</label><input type="email" id="f_email" name="email" required value="${esc(f.email)}"></div>
+    <div class="field"><label for="f_tel">Telefone / WhatsApp</label><input type="text" id="f_tel" name="tel" value="${esc(f.tel)}"></div>
+    <div class="field"><label for="f_perfil">Perfil</label><select id="f_perfil" name="perfil">${Object.entries(PERFIL).map(([k, v]) => `<option value="${k}" ${f.perfil === k ? "selected" : ""}>${v}</option>`).join("")}</select></div>
+    <div class="field"><label for="f_cargo">Cargo</label><input type="text" id="f_cargo" name="cargo" value="${esc(f.cargo)}"></div>
+    <div class="field"><label for="f_cep">CEP de partida</label><input type="text" id="f_cep" name="cep" inputmode="numeric" placeholder="00000-000" value="${esc(fmtCep(f.cep) === "—" ? "" : fmtCep(f.cep))}"><span class="hint">Usado como origem padrão das rotas.</span></div>
+    <div class="field"><label for="f_adm">Data de admissão</label><input type="date" id="f_adm" name="adm" value="${esc(f.adm || TODAY)}"></div>
+  </div>`;
+}
+function saveFunc(fd, id) {
+  const d = Object.fromEntries(fd);
+  d.cpf = d.cpf.replace(/\D/g, ""); d.cep = d.cep.replace(/\D/g, "");
+  const errs = [];
+  if (!d.nome.trim()) errs.push("Informe o nome.");
+  if (d.cpf && d.cpf.length !== 11) errs.push("O CPF precisa ter 11 dígitos.");
+  if (!/^\S+@\S+\.\S+$/.test(d.email)) errs.push("Informe um e-mail válido.");
+  if (d.cep && d.cep.length !== 8) errs.push("O CEP precisa ter 8 dígitos.");
+  if (S.funcionarios.some(f => f.id !== id && f.email.toLowerCase() === d.email.toLowerCase())) errs.push("Já existe um funcionário com esse e-mail.");
+  if (d.cpf && S.funcionarios.some(f => f.id !== id && f.cpf === d.cpf)) errs.push("Já existe um funcionário com esse CPF.");
+  if (errs.length) return errs.join("<br>");
+  if (id) { Object.assign(func(id), d); toast("Funcionário atualizado"); }
+  else { S.funcionarios.push({ id: nextId(S.funcionarios), ativo: true, ...d }); toast("Funcionário cadastrado"); }
+}
+function bindFuncionarios() {
+  $("#newFunc").onclick = () => openDialog({ title: "Novo funcionário", body: funcForm({ perfil: "REPRESENTANTE", cargo: "Representante" }), submitLabel: "Cadastrar", onSubmit: fd => saveFunc(fd) });
+  $("#fq").oninput = e => { fFilter.q = e.target.value; const pos = e.target.selectionStart; render(); const i = $("#fq"); i.focus(); i.setSelectionRange(pos, pos); };
+  document.querySelectorAll("[data-fs]").forEach(b => b.onclick = () => { fFilter.status = b.dataset.fs; render(); });
+  document.querySelectorAll("[data-edit]").forEach(b => b.onclick = () => {
+    const f = func(+b.dataset.edit);
+    openDialog({ title: `Editar ${f.nome}`, body: funcForm(f), onSubmit: fd => saveFunc(fd, f.id) });
+  });
+  document.querySelectorAll("[data-toggle]").forEach(b => b.onclick = () => {
+    const f = func(+b.dataset.toggle);
+    if (!f.ativo) { f.ativo = true; save(); render(); toast(`${f.nome} reativado`); return; }
+    const ts = S.territorios.filter(t => t.func === f.id && isVigente(t));
+    confirmDialog(`Inativar ${f.nome}?`,
+      `O funcionário perde o acesso ao aplicativo.${ts.length ? ` ${ts.length} território(s) vigente(s) serão encerrados hoje e os municípios ficarão sem vendedor até nova atribuição.` : ""}`,
+      "Inativar", () => { f.ativo = false; ts.forEach(t => t.fim = TODAY); toast(`${f.nome} inativado`); });
+  });
+}
+
+/* ============================================================
+   Página: Territórios
+   ============================================================ */
+let tFilter = { func: "", vig: "vigentes" };
+function pageTerritorios() {
+  const list = S.territorios.filter(t => (!tFilter.func || t.func === +tFilter.func) &&
+    (tFilter.vig === "todos" || (tFilter.vig === "vigentes") === (isVigente(t) || t.ini > TODAY)))
+    .sort((a, b) => func(a.func).nome.localeCompare(func(b.func).nome) || NIVEIS.indexOf(a.nivel) - NIVEIS.indexOf(b.nivel));
+  return head("Área de atuação", "Territórios", "Cada território tem um único responsável por período. A atribuição vale em qualquer nível: país, estado, município ou bairro. Um estado atribuído bloqueia todos os seus municípios e bairros para outras pessoas.",
+    '<button class="btn primary" id="newTerr">Atribuir território</button>') + `
+  <section class="panel">
+    <div class="panel-head"><div class="toolbar" style="flex:1">
+      <select id="tf" aria-label="Filtrar por funcionário" style="max-width:260px"><option value="">Todos os funcionários</option>${S.funcionarios.map(f => `<option value="${f.id}" ${+tFilter.func === f.id ? "selected" : ""}>${esc(f.nome)}</option>`).join("")}</select>
+      <div class="seg" role="group" aria-label="Vigência">${[["vigentes", "Vigentes e futuros"], ["encerrados", "Encerrados"], ["todos", "Todos"]].map(([v, l]) => `<button type="button" data-tv="${v}" aria-pressed="${tFilter.vig === v}">${l}</button>`).join("")}</div>
+    </div></div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Funcionário</th><th>Nível</th><th>Território</th><th>Início</th><th>Fim</th><th>Situação</th><th></th></tr></thead>
+      <tbody>${list.length ? list.map(t => {
+        const f = func(t.func), sit = t.ini > TODAY ? '<span class="pill info">Futuro</span>' : isVigente(t) ? '<span class="pill ok">Vigente</span>' : '<span class="pill">Encerrado</span>';
+        return `<tr><td><strong>${esc(f.nome)}</strong>${f.ativo ? "" : ' <span class="pill">inativo</span>'}</td>
+          <td><span class="lvl ${t.nivel}">${NIVEL_LABEL[t.nivel]}</span></td>
+          <td>${esc(terrName(t.nivel, t.ref))}</td>
+          <td class="mono">${fmtDate(t.ini)}</td><td class="mono">${t.fim ? fmtDate(t.fim) : "indeterminado"}</td><td>${sit}</td>
+          <td class="right">${!t.fim || t.fim >= TODAY ? `<button class="btn sm danger" data-end="${t.id}">Encerrar</button>` : ""}</td></tr>`;
+      }).join("") : `<tr><td colspan="7" class="empty">Nenhum território com esse filtro.</td></tr>`}</tbody>
+    </table></div>
+  </section>`;
+}
+function territoryOptions() {
+  return [
+    { nivel: "PAIS", ref: 1058, label: "Brasil", path: "País inteiro" },
+    ...ESTADOS.map(e => ({ nivel: "ESTADO", ref: e.id, label: e.nome, path: e.uf })),
+    ...MUNICIPIOS.map(m => ({ nivel: "MUNICIPIO", ref: m.id, label: m.nome, path: `${estado(m.estado).uf} · IBGE ${m.id}` })),
+    ...BAIRROS.map(b => { const m = municipio(b.municipio); return { nivel: "BAIRRO", ref: b.id, label: b.nome, path: `${m.nome} / ${estado(m.estado).uf}` }; })
+  ];
+}
+function openTerritoryDialog(pre = {}) {
+  const reps = S.funcionarios.filter(f => f.ativo);
+  let chosen = pre.nivel ? { nivel: pre.nivel, ref: pre.ref } : null;
+  openDialog({
+    title: "Atribuir território", submitLabel: "Atribuir",
+    body: `
+      <div class="field"><label for="t_func">Funcionário</label><select id="t_func" name="func" required><option value="">Selecione</option>${reps.map(f => `<option value="${f.id}">${esc(f.nome)} · ${PERFIL[f.perfil]}</option>`).join("")}</select></div>
+      <div class="field"><span class="lbl" id="t_nivel_lbl">Nível</span>
+        <div class="seg" role="group" aria-labelledby="t_nivel_lbl" id="t_nivel"><button type="button" data-n="" aria-pressed="true">Todos</button>${NIVEIS.map(n => `<button type="button" data-n="${n}" aria-pressed="false">${NIVEL_LABEL[n]}</button>`).join("")}</div></div>
+      <div class="field ac"><label for="t_q">Território</label>
+        <input type="text" id="t_q" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="t_list" placeholder="Digite o nome do estado, município ou bairro" value="${chosen ? esc(terrName(chosen.nivel, chosen.ref)) : ""}">
+        <ul class="ac-list" id="t_list" role="listbox" hidden></ul>
+        <span class="hint">Exemplos: "Itaboraí", "Boa Viagem", "Pernambuco".</span></div>
+      <div id="t_check"></div>
+      <div class="form-grid">
+        <div class="field"><label for="t_ini">Início da vigência</label><input type="date" id="t_ini" name="ini" value="${TODAY}"></div>
+        <div class="field"><label for="t_fim">Fim (opcional)</label><input type="date" id="t_fim" name="fim"><span class="hint">Vazio = por tempo indeterminado.</span></div>
+      </div>`,
+    onOpen: () => {
+      const opts = territoryOptions();
+      let nivel = "", active = -1, shown = [];
+      const q = $("#t_q"), ul = $("#t_list");
+      const check = () => {
+        const box = $("#t_check");
+        if (!chosen) { box.innerHTML = ""; return; }
+        const c = findConflict({ ...chosen, ini: $("#t_ini").value, fim: $("#t_fim").value || null });
+        const fsel = +$("#t_func").value;
+        box.innerHTML = c
+          ? `<div class="callout danger"><strong>Sobreposição.</strong> ${esc(terrName(chosen.nivel, chosen.ref))} ${c.func === fsel ? "já está coberto por outro território deste funcionário" : `conflita com ${esc(terrName(c.nivel, c.ref))}, de ${esc(func(c.func).nome)}`} (${fmtDate(c.ini)} a ${c.fim ? fmtDate(c.fim) : "indeterminado"}).</div>`
+          : `<div class="callout ok">${esc(terrName(chosen.nivel, chosen.ref))} está livre no período.</div>`;
+      };
+      const draw = () => {
+        const s = norm(q.value.trim());
+        shown = opts.filter(o => (!nivel || o.nivel === nivel) && (!s || norm(o.label).includes(s))).slice(0, 30);
+        ul.innerHTML = shown.length ? shown.map((o, i) => `<li role="option" id="t_o${i}" data-i="${i}" aria-selected="${i === active}"><span class="lvl ${o.nivel}">${NIVEL_LABEL[o.nivel]}</span><span>${esc(o.label)} <span class="path">${esc(o.path)}</span></span></li>`).join("") : '<li class="muted" aria-disabled="true">Nada encontrado</li>';
+        ul.hidden = false; q.setAttribute("aria-expanded", "true");
+        ul.querySelectorAll("li[data-i]").forEach(li => li.onmousedown = e => { e.preventDefault(); pick(shown[+li.dataset.i]); });
+      };
+      const pick = o => { chosen = { nivel: o.nivel, ref: o.ref }; q.value = terrName(o.nivel, o.ref); ul.hidden = true; q.setAttribute("aria-expanded", "false"); check(); };
+      q.oninput = () => { chosen = null; active = -1; draw(); check(); };
+      q.onfocus = draw;
+      q.onblur = () => setTimeout(() => { ul.hidden = true; q.setAttribute("aria-expanded", "false"); }, 120);
+      q.onkeydown = e => {
+        if (e.key === "ArrowDown") { active = Math.min(active + 1, shown.length - 1); draw(); e.preventDefault(); }
+        else if (e.key === "ArrowUp") { active = Math.max(active - 1, 0); draw(); e.preventDefault(); }
+        else if (e.key === "Enter" && active >= 0 && !ul.hidden) { pick(shown[active]); e.preventDefault(); }
+        else if (e.key === "Escape" && !ul.hidden) { ul.hidden = true; e.stopPropagation(); e.preventDefault(); }
+      };
+      $("#t_nivel").querySelectorAll("button").forEach(b => b.onclick = () => {
+        nivel = b.dataset.n; $("#t_nivel").querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x === b)); draw(); q.focus();
+      });
+      ["#t_ini", "#t_fim", "#t_func"].forEach(s => $(s).onchange = check);
+      check();
+    },
+    onSubmit: fd => {
+      const f = +fd.get("func"), ini = fd.get("ini"), fim = fd.get("fim") || null;
+      if (!f) return "Selecione o funcionário.";
+      if (!chosen) return "Escolha um território da lista de sugestões.";
+      if (!ini) return "Informe o início da vigência.";
+      if (fim && fim < ini) return "O fim da vigência não pode ser anterior ao início.";
+      const c = findConflict({ ...chosen, ini, fim });
+      if (c) return `Não é possível atribuir: ${esc(terrName(c.nivel, c.ref))} já está com ${esc(func(c.func).nome)} no período. Encerre esse vínculo ou escolha outra área.`;
+      S.territorios.push({ id: nextId(S.territorios), func: f, nivel: chosen.nivel, ref: chosen.ref, ini, fim });
+      toast(`${terrName(chosen.nivel, chosen.ref)} atribuído a ${func(f).nome}`);
+    }
+  });
+}
+function bindTerritorios() {
+  $("#newTerr").onclick = () => openTerritoryDialog();
+  $("#tf").onchange = e => { tFilter.func = e.target.value; render(); };
+  document.querySelectorAll("[data-tv]").forEach(b => b.onclick = () => { tFilter.vig = b.dataset.tv; render(); });
+  document.querySelectorAll("[data-end]").forEach(b => b.onclick = () => {
+    const t = S.territorios.find(x => x.id === +b.dataset.end);
+    confirmDialog("Encerrar vínculo?", `${esc(terrName(t.nivel, t.ref))} deixa de ser de ${esc(func(t.func).nome)} a partir de hoje (${fmtDate(TODAY)}). O histórico é mantido.`, "Encerrar",
+      () => { t.fim = t.ini > TODAY ? t.ini : TODAY; toast("Vínculo encerrado"); });
+  });
+}
+
+/* ============================================================
+   Página: Lojas
+   ============================================================ */
+let lFilter = { q: "", qual: "" };
+function pageLojas() {
+  const list = S.lojas.filter(l => (!lFilter.q || norm(l.nome + l.cod + municipio(l.mun).nome).includes(norm(lFilter.q))) && (!lFilter.qual || qualificacao(l) === lFilter.qual));
+  return head("Carteira", "Lojas", "Pontos de venda que entram nas rotas. A qualificação é calculada pelas marcas qualificadas que a loja vende.",
+    '<button class="btn" id="mgMarcas">Marcas qualificadas</button><button class="btn primary" id="newLoja">Nova loja</button>') + `
+  <section class="panel">
+    <div class="panel-head"><div class="toolbar" style="flex:1">
+      <input type="search" class="search" id="lq" placeholder="Buscar por nome, código ou município" value="${esc(lFilter.q)}" aria-label="Buscar loja">
+      <select id="lqual" aria-label="Filtrar por qualificação" style="max-width:200px"><option value="">Todas as qualificações</option>${Object.entries(QUAL).map(([k, v]) => `<option value="${k}" ${lFilter.qual === k ? "selected" : ""}>${v[0]}</option>`).join("")}</select>
+    </div></div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Código</th><th>Loja</th><th>Local</th><th>Status</th><th>Marcas</th><th>Qualificação</th><th class="right">Ticket médio</th><th class="right">Tempo</th><th></th></tr></thead>
+      <tbody>${list.length ? list.map(l => {
+        const m = municipio(l.mun), r = resolveTempo(l.id, null);
+        return `<tr class="${l.ativo ? "" : "is-inactive"}"><td class="mono">${esc(l.cod)}</td><td><strong>${esc(l.nome)}</strong></td>
+          <td>${l.bairro ? esc(bairro(l.bairro).nome) + ", " : ""}${esc(m.nome)} <span class="muted">/ ${estado(m.estado).uf}</span></td>
+          <td>${statusPill(l.status)}</td>
+          <td><div class="chips">${l.marcas.map(id => { const mk = S.marcas.find(x => x.id === id); return mk ? `<span class="chip" style="${mk.q ? "" : "opacity:.6"}">${esc(mk.nome)}</span>` : ""; }).join("") || '<span class="muted">—</span>'}</div></td>
+          <td>${qualPill(qualificacao(l))}</td><td class="right mono">${brl(l.ticket)}</td>
+          <td class="right mono" title="Regra aplicada: ${DIM_LABEL[r.hit.dim]}">${fmtMin(r.hit.rule.min)}</td>
+          <td class="right"><button class="btn sm" data-el="${l.id}">Editar</button></td></tr>`;
+      }).join("") : `<tr><td colspan="9" class="empty">Nenhuma loja encontrada.</td></tr>`}</tbody>
+    </table></div>
+  </section>`;
+}
+function lojaForm(l = { marcas: [], status: "PROSPECCAO", ativo: true, ticket: 0 }) {
+  return `<div class="form-grid">
+    <div class="field"><label for="l_cod">Código do cliente</label><input type="text" id="l_cod" name="cod" value="${esc(l.cod)}" required></div>
+    <div class="field"><label for="l_nome">Nome da loja</label><input type="text" id="l_nome" name="nome" value="${esc(l.nome)}" required></div>
+    <div class="field"><label for="l_mun">Município</label><select id="l_mun" name="mun">${MUNICIPIOS.map(m => `<option value="${m.id}" ${l.mun === m.id ? "selected" : ""}>${esc(m.nome)} / ${estado(m.estado).uf}</option>`).join("")}</select></div>
+    <div class="field"><label for="l_bairro">Bairro</label><select id="l_bairro" name="bairro"></select></div>
+    <div class="field"><label for="l_status">Status</label><select id="l_status" name="status">${S.status.filter(s => s.ativo).map(s => `<option value="${s.cod}" ${l.status === s.cod ? "selected" : ""}>${esc(s.desc)}</option>`).join("")}</select></div>
+    <div class="field"><label for="l_ticket">Ticket médio (R$)</label><input type="number" id="l_ticket" name="ticket" min="0" step="100" value="${l.ticket}"></div>
+    <fieldset class="field full" style="border:0;padding:0;margin:0"><legend class="lbl" style="margin-bottom:6px">Marcas vendidas na loja</legend>
+      <div class="chips">${S.marcas.map(m => `<label class="chip check"><input type="checkbox" name="marcas" value="${m.id}" ${l.marcas.includes(m.id) ? "checked" : ""}>${esc(m.nome)}${m.q ? "" : ' <span class="muted">(não conta)</span>'}</label>`).join("")}</div>
+      <div id="l_qual" style="margin-top:8px"></div></fieldset>
+    <label class="check full"><input type="checkbox" name="ativo" ${l.ativo ? "checked" : ""}> Loja ativa (entra na geração de rotas)</label>
+  </div>`;
+}
+function bindLojaForm(l) {
+  const fillB = () => {
+    const mid = +$("#l_mun").value, bs = BAIRROS.filter(b => b.municipio === mid);
+    $("#l_bairro").innerHTML = `<option value="">Não informado</option>` + bs.map(b => `<option value="${b.id}" ${l && l.bairro === b.id ? "selected" : ""}>${esc(b.nome)}</option>`).join("");
+  };
+  const q = () => {
+    const ids = [...dlg.querySelectorAll('input[name="marcas"]:checked')].map(i => +i.value);
+    $("#l_qual").innerHTML = `Qualificação calculada: ${qualPill(qualificacao({ marcas: ids }))}`;
+  };
+  $("#l_mun").onchange = fillB; fillB();
+  dlg.querySelectorAll('input[name="marcas"]').forEach(i => i.onchange = q); q();
+}
+function saveLoja(fd, id) {
+  const d = { cod: fd.get("cod").trim(), nome: fd.get("nome").trim(), mun: +fd.get("mun"), bairro: fd.get("bairro") ? +fd.get("bairro") : null, status: fd.get("status"), ticket: +fd.get("ticket") || 0, marcas: fd.getAll("marcas").map(Number), ativo: fd.get("ativo") === "on" };
+  if (!d.cod || !d.nome) return "Informe código e nome da loja.";
+  if (S.lojas.some(l => l.id !== id && l.cod.toLowerCase() === d.cod.toLowerCase())) return "Já existe uma loja com esse código de cliente.";
+  if (id) { Object.assign(loja(id), d); toast("Loja atualizada"); } else { S.lojas.push({ id: nextId(S.lojas), ...d }); toast("Loja cadastrada"); }
+}
+function bindLojas() {
+  $("#newLoja").onclick = () => openDialog({ title: "Nova loja", body: lojaForm(), submitLabel: "Cadastrar", onOpen: () => bindLojaForm(null), onSubmit: fd => saveLoja(fd) });
+  document.querySelectorAll("[data-el]").forEach(b => b.onclick = () => { const l = loja(+b.dataset.el); openDialog({ title: `Editar ${l.nome}`, body: lojaForm(l), onOpen: () => bindLojaForm(l), onSubmit: fd => saveLoja(fd, l.id) }); });
+  $("#lq").oninput = e => { lFilter.q = e.target.value; const p = e.target.selectionStart; render(); const i = $("#lq"); i.focus(); i.setSelectionRange(p, p); };
+  $("#lqual").onchange = e => { lFilter.qual = e.target.value; render(); };
+  $("#mgMarcas").onclick = () => openDialog({
+    title: "Marcas qualificadas", submitLabel: "Salvar marcas",
+    body: `<p class="muted">Marque as marcas premium que contam para a qualificação. 1 marca = good, 2 = very good, 3 ou mais = best.</p>
+      <div style="display:grid;gap:8px">${S.marcas.map(m => `<label class="check"><input type="checkbox" name="q" value="${m.id}" ${m.q ? "checked" : ""}> ${esc(m.nome)}</label>`).join("")}</div>
+      <div class="field"><label for="m_new">Adicionar marca</label><input type="text" id="m_new" name="nova" placeholder="Ex.: Asics"></div>`,
+    onSubmit: fd => {
+      const q = fd.getAll("q").map(Number); S.marcas.forEach(m => m.q = q.includes(m.id));
+      const n = fd.get("nova").trim();
+      if (n) { if (S.marcas.some(m => norm(m.nome) === norm(n))) return "Essa marca já está na lista."; S.marcas.push({ id: nextId(S.marcas), nome: n, q: true }); }
+      toast("Marcas atualizadas");
+    }
+  });
+}
+
+/* ============================================================
+   Página: Tempo de atendimento
+   ============================================================ */
+let sim = { loja: 1, func: 2 };
+function pageTempo() {
+  const g = S.tempos.find(t => t.dim === "GLOBAL");
+  const ex = S.tempos.filter(t => t.dim !== "GLOBAL").sort((a, b) => DIMS.indexOf(a.dim) - DIMS.indexOf(b.dim));
+  const r = resolveTempo(sim.loja, sim.func ? +sim.func : null);
+  return head("Parâmetro", "Tempo de atendimento", "Um tempo global vale para todas as visitas. Exceções por estado, município, bairro, funcionário ou loja substituem o global quando se aplicam; vale sempre a regra mais específica.") + `
+  <div class="grid-2">
+    <div class="stack">
+      <section class="panel"><div class="panel-head"><h2>Tempo global</h2><span class="muted">sugestão do segmento: 2h</span></div>
+        <form class="panel-body" id="globalForm" style="display:flex;flex-wrap:wrap;gap:12px;align-items:end">
+          <div class="field" style="flex:0 1 160px"><label for="g_min">Minutos por visita</label><input type="number" id="g_min" name="min" min="1" max="1440" value="${g.min}"></div>
+          <div class="field" style="flex:1 1 200px"><label for="g_obs">Observação</label><input type="text" id="g_obs" name="obs" value="${esc(g.obs)}"></div>
+          <button class="btn primary" type="submit">Salvar</button>
+        </form></section>
+      <section class="panel"><div class="panel-head"><h2>Exceções</h2><button class="btn sm primary" id="newTempo">Nova exceção</button></div>
+        <div class="table-wrap"><table><thead><tr><th>Dimensão</th><th>Aplica-se a</th><th class="right">Tempo</th><th></th></tr></thead>
+        <tbody>${ex.length ? ex.map(t => `<tr><td><span class="pill accent">${DIM_LABEL[t.dim]}</span></td><td>${esc(tempoRefName(t))}${t.obs ? `<br><span class="muted">${esc(t.obs)}</span>` : ""}</td><td class="right mono">${fmtMin(t.min)}</td><td class="right"><button class="btn sm danger" data-deltempo="${t.id}">Remover</button></td></tr>`).join("") : '<tr><td colspan="4" class="empty">Sem exceções. Todas as visitas usam o tempo global.</td></tr>'}</tbody></table></div>
+      </section>
+    </div>
+    <section class="panel"><div class="panel-head"><h2>Simular uma visita</h2></div>
+      <div class="panel-body" style="display:grid;gap:14px">
+        <div class="form-grid">
+          <div class="field"><label for="s_loja">Loja</label><select id="s_loja">${S.lojas.map(l => `<option value="${l.id}" ${sim.loja === l.id ? "selected" : ""}>${esc(l.nome)}</option>`).join("")}</select></div>
+          <div class="field"><label for="s_func">Representante</label><select id="s_func"><option value="">Nenhum</option>${S.funcionarios.filter(f => f.perfil === "REPRESENTANTE").map(f => `<option value="${f.id}" ${+sim.func === f.id ? "selected" : ""}>${esc(f.nome)}</option>`).join("")}</select></div>
+        </div>
+        <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap"><span class="muted">Tempo previsto:</span><span style="font-family:var(--f-display);font-size:2.4rem;line-height:1">${fmtMin(r.hit.rule.min)}</span><span class="pill accent">regra: ${DIM_LABEL[r.hit.dim]}</span></div>
+        <div class="chain" aria-label="Ordem de precedência">
+          ${r.steps.map(s => { const isHit = s === r.hit, after = r.steps.indexOf(s) > r.steps.indexOf(r.hit);
+            return `<div class="chain-step ${isHit ? "hit" : s.rule && after ? "shadowed" : ""}"><strong>${DIM_LABEL[s.dim]}</strong><span>${s.rule ? esc(tempoRefName(s.rule)) : "sem regra"}${s.rule && after ? " · ignorada" : ""}</span><span class="mins">${s.rule ? fmtMin(s.rule.min) : "—"}</span></div>`; }).join("")}
+        </div>
+        <p class="muted" style="font-size:.85rem">Ordem: loja, funcionário, bairro, município, estado, global. A primeira regra encontrada define o tempo usado na montagem da rota.</p>
+      </div></section>
+  </div>`;
+}
+function bindTempo() {
+  $("#globalForm").onsubmit = e => { e.preventDefault(); const g = S.tempos.find(t => t.dim === "GLOBAL"), v = +$("#g_min").value; if (!(v >= 1 && v <= 1440)) { toast("Informe entre 1 e 1440 minutos"); return; } g.min = v; g.obs = $("#g_obs").value; save(); render(); toast("Tempo global salvo"); };
+  $("#s_loja").onchange = e => { sim.loja = +e.target.value; render(); };
+  $("#s_func").onchange = e => { sim.func = e.target.value; render(); };
+  document.querySelectorAll("[data-deltempo]").forEach(b => b.onclick = () => { S.tempos = S.tempos.filter(t => t.id !== +b.dataset.deltempo); save(); render(); toast("Exceção removida"); });
+  $("#newTempo").onclick = () => {
+    const refOpts = dim => ({
+      ESTADO: ESTADOS.map(e => [e.id, `${e.nome} (${e.uf})`]),
+      MUNICIPIO: MUNICIPIOS.map(m => [m.id, `${m.nome} / ${estado(m.estado).uf}`]),
+      BAIRRO: BAIRROS.map(b => [b.id, terrName("BAIRRO", b.id)]),
+      FUNCIONARIO: S.funcionarios.filter(f => f.ativo).map(f => [f.id, f.nome]),
+      LOJA: S.lojas.map(l => [l.id, `${l.nome} (${l.cod})`])
+    })[dim];
+    openDialog({
+      title: "Nova exceção de tempo", submitLabel: "Adicionar",
+      body: `<div class="form-grid">
+        <div class="field"><label for="x_dim">Dimensão</label><select id="x_dim" name="dim">${DIMS.filter(d => d !== "GLOBAL").map(d => `<option value="${d}">${DIM_LABEL[d]}</option>`).join("")}</select></div>
+        <div class="field"><label for="x_ref">Aplica-se a</label><select id="x_ref" name="ref"></select></div>
+        <div class="field"><label for="x_min">Minutos</label><input type="number" id="x_min" name="min" min="1" max="1440" value="60"></div>
+        <div class="field"><label for="x_obs">Justificativa</label><input type="text" id="x_obs" name="obs"></div></div>`,
+      onOpen: () => { const f = () => $("#x_ref").innerHTML = refOpts($("#x_dim").value).map(([v, l]) => `<option value="${v}">${esc(l)}</option>`).join(""); $("#x_dim").onchange = f; f(); },
+      onSubmit: fd => {
+        const dim = fd.get("dim"), ref = +fd.get("ref"), min = +fd.get("min");
+        if (!(min >= 1 && min <= 1440)) return "Informe entre 1 e 1440 minutos.";
+        const ex = S.tempos.find(t => t.dim === dim && t.ref === ref);
+        if (ex) return `Já existe uma regra de ${DIM_LABEL[dim].toLowerCase()} para ${esc(tempoRefName(ex))} (${fmtMin(ex.min)}). Remova-a antes de criar outra.`;
+        S.tempos.push({ id: nextId(S.tempos), dim, ref, min, obs: fd.get("obs") }); toast("Exceção adicionada");
+      }
+    });
+  };
+}
+
+/* ============================================================
+   Página: Status e motivos
+   ============================================================ */
+function motivoList(tipo) {
+  const ms = S.motivos.filter(m => m.tipo === tipo);
+  return `<div class="table-wrap"><table><tbody>${ms.map(m => `<tr class="${m.ativo ? "" : "is-inactive"}">
+    <td>${esc(m.desc)}${m.livre ? ' <span class="pill info">pede texto livre</span>' : ""}</td>
+    <td>${m.sys ? '<span class="pill">padrão</span>' : '<span class="pill accent">da empresa</span>'}</td>
+    <td class="right"><button class="btn sm" data-mtoggle="${m.id}">${m.ativo ? "Ocultar" : "Exibir"}</button>${m.sys ? "" : ` <button class="btn sm danger" data-mdel="${m.id}">Excluir</button>`}</td></tr>`).join("")}</tbody></table></div>`;
+}
+function pageStatus() {
+  return head("Listas do aplicativo", "Status e motivos", "O que o representante escolhe no app. Itens padrão vêm do produto e podem ser ocultados; a empresa pode criar os seus. Respostas em \"Outros\" são revisadas a cada seis meses para virar novos motivos.") + `
+  <div class="grid-3">
+    <section class="panel"><div class="panel-head"><h2>Status da loja</h2><button class="btn sm" data-add="STATUS">Adicionar</button></div>
+      <div class="table-wrap"><table><tbody>${S.status.map(s => `<tr class="${s.ativo ? "" : "is-inactive"}"><td>${statusPill(s.cod)}</td><td class="mono muted">${esc(s.cod)}</td>
+        <td class="right"><button class="btn sm" data-stoggle="${s.id}">${s.ativo ? "Ocultar" : "Exibir"}</button></td></tr>`).join("")}</tbody></table></div></section>
+    <section class="panel"><div class="panel-head"><h2>Não visitou</h2><button class="btn sm" data-add="NAO_VISITA">Adicionar</button></div>${motivoList("NAO_VISITA")}</section>
+    <section class="panel"><div class="panel-head"><h2>Visitou e não vendeu</h2><button class="btn sm" data-add="NAO_VENDA">Adicionar</button></div>${motivoList("NAO_VENDA")}</section>
+  </div>
+  <section class="panel" style="margin-top:20px"><div class="panel-head"><h2>Como o representante vê no app</h2><span class="muted">prévia</span></div>
+    <div class="panel-body" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px">
+      <div class="field"><label for="pv1">Visitou a loja?</label><select id="pv1"><option>Sim</option><option>Não</option></select></div>
+      <div class="field"><label for="pv2">Motivo da não visita</label><select id="pv2">${S.motivos.filter(m => m.tipo === "NAO_VISITA" && m.ativo).map(m => `<option>${esc(m.desc)}</option>`).join("")}</select></div>
+      <div class="field"><label for="pv3">Vendeu?</label><select id="pv3"><option>Sim</option><option>Não</option></select></div>
+      <div class="field"><label for="pv4">Por que não vendeu?</label><select id="pv4">${S.motivos.filter(m => m.tipo === "NAO_VENDA" && m.ativo).map(m => `<option>${esc(m.desc)}</option>`).join("")}</select></div>
+    </div></section>`;
+}
+function bindStatus() {
+  document.querySelectorAll("[data-stoggle]").forEach(b => b.onclick = () => { const s = S.status.find(x => x.id === +b.dataset.stoggle); s.ativo = !s.ativo; save(); render(); });
+  document.querySelectorAll("[data-mtoggle]").forEach(b => b.onclick = () => { const m = S.motivos.find(x => x.id === +b.dataset.mtoggle); m.ativo = !m.ativo; save(); render(); toast(m.ativo ? "Motivo visível no app" : "Motivo oculto no app"); });
+  document.querySelectorAll("[data-mdel]").forEach(b => b.onclick = () => { S.motivos = S.motivos.filter(x => x.id !== +b.dataset.mdel); save(); render(); toast("Motivo excluído"); });
+  document.querySelectorAll("[data-add]").forEach(b => b.onclick = () => {
+    const tipo = b.dataset.add, isS = tipo === "STATUS";
+    openDialog({
+      title: isS ? "Novo status de loja" : tipo === "NAO_VISITA" ? "Novo motivo de não visita" : "Novo motivo de não venda", submitLabel: "Adicionar",
+      body: `<div class="field"><label for="n_desc">Descrição</label><input type="text" id="n_desc" name="desc" required></div>
+        ${isS ? `<div class="field"><label for="n_cor">Cor do selo</label><select id="n_cor" name="cor"><option value="ok">Verde</option><option value="info">Azul</option><option value="warn">Âmbar</option><option value="danger">Vermelho</option><option value="accent">Verde-placa</option><option value="">Cinza</option></select></div>`
+              : `<label class="check"><input type="checkbox" name="livre"> Pedir que o representante descreva (texto livre)</label>`}`,
+      onSubmit: fd => {
+        const desc = fd.get("desc").trim(); if (!desc) return "Informe a descrição.";
+        if (isS) {
+          const cod = norm(desc).toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_|_$/g, "");
+          if (S.status.some(s => s.cod === cod)) return "Já existe um status com essa descrição.";
+          S.status.push({ id: nextId(S.status), cod, desc, cor: fd.get("cor"), sys: false, ativo: true });
+        } else {
+          if (S.motivos.some(m => m.tipo === tipo && norm(m.desc) === norm(desc))) return "Esse motivo já existe.";
+          S.motivos.push({ id: nextId(S.motivos), tipo, desc, sys: false, livre: fd.get("livre") === "on", ativo: true });
+        }
+        toast("Item adicionado");
+      }
+    });
+  });
+}
+
+/* ============================================================
+   Página: Parâmetros de rota + Conta de IA
+   ============================================================ */
+function pageParametros() {
+  const p = S.params, ia = S.ia || {};
+  const diasUteis = p.semanas * 5, visitas = diasUteis * p.visitasDia;
+  return head("Configuração", "Parâmetros de rota", "Valores padrão usados ao gerar rotas. O representante informa o CEP de partida e pode ajustar o limite territorial e os dias de viagem em cada roteiro.") + `
+  <div class="grid-2">
+    <form class="panel" id="paramForm">
+      <div class="panel-head"><h2>Planejamento</h2><button class="btn primary sm" type="submit">Salvar parâmetros</button></div>
+      <div class="panel-body form-grid">
+        <div class="field"><label for="p_sem">Horizonte (semanas)</label><input type="number" id="p_sem" name="semanas" min="1" max="52" value="${p.semanas}"></div>
+        <div class="field"><label for="p_vd">Visitas por dia</label><input type="number" id="p_vd" name="visitasDia" min="1" max="50" value="${p.visitasDia}"></div>
+        <div class="field"><label for="p_dv">Dias de viagem por roteiro</label><input type="number" id="p_dv" name="diasViagem" min="1" max="30" value="${p.diasViagem}"></div>
+        <div class="field"><label for="p_int">Intervalo entre visitas (min)</label><input type="number" id="p_int" name="intervalo" min="0" value="${p.intervalo}"></div>
+        <div class="field full"><span class="lbl" id="p_lim_lbl">Limite territorial padrão</span>
+          <div class="seg" role="group" aria-labelledby="p_lim_lbl" id="p_lim">${NIVEIS.map(n => `<button type="button" data-lim="${n}" aria-pressed="${p.limite === n}">${n === "PAIS" ? "País inteiro" : "Mesmo " + NIVEL_LABEL[n].toLowerCase()}</button>`).join("")}</div>
+          <span class="hint">A rota só inclui lojas dentro desse limite, a partir do CEP de partida.</span></div>
+        <div class="field"><label for="p_hi">Início da jornada</label><input type="time" id="p_hi" name="horaIni" value="${p.horaIni}"></div>
+        <div class="field"><label for="p_hl">Não deslocar após</label><input type="time" id="p_hl" name="horaLimite" value="${p.horaLimite}"></div>
+        <div class="field"><label for="p_raio">Raio de check-in (m)</label><input type="number" id="p_raio" name="raio" min="5" max="500" value="${p.raio}"><span class="hint">Inicia o atendimento pelo GPS.</span></div>
+        <label class="check" style="align-self:end"><input type="checkbox" name="soQualificadas" ${p.soQualificadas ? "checked" : ""}> Somente cidades qualificadas</label>
+        <div class="field"><label for="p_km">Custo por km (R$)</label><input type="number" id="p_km" name="custoKm" step="0.01" min="0" value="${p.custoKm}"></div>
+        <div class="field"><label for="p_hosp">Hospedagem por diária (R$)</label><input type="number" id="p_hosp" name="hosp" step="1" min="0" value="${p.hosp}"></div>
+        <div class="field"><label for="p_alim">Alimentação por dia (R$)</label><input type="number" id="p_alim" name="alim" step="1" min="0" value="${p.alim}"></div>
+        <div class="callout full">Com esses valores, cada representante tem <strong>${visitas} visitas</strong> em ${p.semanas} semanas (${diasUteis} dias úteis × ${p.visitasDia} por dia).</div>
+      </div>
+    </form>
+    <form class="panel" id="iaForm">
+      <div class="panel-head"><h2>Conta de IA da empresa</h2>${ia.validada ? `<span class="pill ok">Validada em ${fmtDate(ia.validada)}</span>` : '<span class="pill danger">Obrigatória</span>'}</div>
+      <div class="panel-body" style="display:grid;gap:14px">
+        <p class="muted">A qualificação de cidades e lojas roda na conta de IA da própria empresa, que arca com o custo de processamento. A chave fica cifrada e não é exibida depois de salva.</p>
+        <div class="form-grid">
+          <div class="field"><label for="ia_p">Provedor</label><select id="ia_p" name="provedor"><option value="ANTHROPIC" ${ia.provedor === "ANTHROPIC" ? "selected" : ""}>Claude (Anthropic)</option><option value="OPENAI" ${ia.provedor === "OPENAI" ? "selected" : ""}>GPT (OpenAI)</option><option value="OUTRO" ${ia.provedor === "OUTRO" ? "selected" : ""}>Outro</option></select></div>
+          <div class="field"><label for="ia_e">Nível de esforço</label><select id="ia_e" name="esforco">${["baixo", "medio", "alto"].map(v => `<option value="${v}" ${ia.esforco === v ? "selected" : ""}>${v === "medio" ? "Médio" : v[0].toUpperCase() + v.slice(1)}</option>`).join("")}</select></div>
+          <div class="field full"><label for="ia_i">Identificação da conta</label><input type="text" id="ia_i" name="ident" value="${esc(ia.ident)}" placeholder="E-mail ou apelido da chave"></div>
+          <div class="field full"><label for="ia_k">Chave de API</label><input type="password" id="ia_k" name="chave" placeholder="${ia.chave ? esc(ia.chave) + " (salva)" : "Cole a chave"}" autocomplete="off"><span class="hint">Deixe em branco para manter a chave atual.</span></div>
+        </div>
+        <div class="actions"><button class="btn primary" type="submit">Validar e salvar</button></div>
+        <div class="callout">Esforço maior gera análises mais profundas e custa mais tokens. Nos testes da reunião, o nível de esforço mudou a qualidade do ranking de lojas.</div>
+      </div>
+    </form>
+  </div>`;
+}
+function bindParametros() {
+  let lim = S.params.limite;
+  document.querySelectorAll("[data-lim]").forEach(b => b.onclick = () => { lim = b.dataset.lim; document.querySelectorAll("[data-lim]").forEach(x => x.setAttribute("aria-pressed", x === b)); });
+  $("#paramForm").onsubmit = e => {
+    e.preventDefault(); const fd = new FormData(e.target), p = S.params;
+    const hi = fd.get("horaIni"), hl = fd.get("horaLimite");
+    if (hl <= hi) { toast("O horário limite precisa ser depois do início da jornada"); return; }
+    Object.assign(p, { semanas: +fd.get("semanas"), visitasDia: +fd.get("visitasDia"), diasViagem: +fd.get("diasViagem"), intervalo: +fd.get("intervalo"), limite: lim, horaIni: hi, horaLimite: hl, raio: +fd.get("raio"), soQualificadas: fd.get("soQualificadas") === "on", custoKm: +fd.get("custoKm"), hosp: +fd.get("hosp"), alim: +fd.get("alim") });
+    save(); render(); toast("Parâmetros salvos");
+  };
+  $("#iaForm").onsubmit = e => {
+    e.preventDefault(); const fd = new FormData(e.target), k = fd.get("chave").trim();
+    if (!fd.get("ident").trim()) { toast("Informe a identificação da conta"); return; }
+    if (!k && !(S.ia && S.ia.chave)) { toast("Cole a chave de API para validar"); return; }
+    S.ia = { ...(S.ia || {}), provedor: fd.get("provedor"), esforco: fd.get("esforco"), ident: fd.get("ident").trim(), chave: k ? k.slice(0, 7) + "••••••••" + k.slice(-4) : S.ia.chave, validada: TODAY };
+    save(); render(); toast("Conta validada (simulação)");
+  };
+}
+
+/* ============================================================
+   Página: Requisitos
+   ============================================================ */
+const REQS = [
+  ["RF01", "Cadastrar, editar, ativar e inativar funcionários com perfil, CEP de partida e login.", "00:33:35", "funcionarios"],
+  ["RF02", "Vincular funcionário a território em nível de país, estado, município ou bairro, com vigência.", "00:34:35", "territorios"],
+  ["RF03", "Buscar território digitando o nome, com sugestões de bairro, município e UF.", "00:34:35", "territorios"],
+  ["RF04", "Impedir sobreposição de territórios entre funcionários, inclusive por hierarquia.", "00:25:06", "territorios"],
+  ["RF05", "Mostrar a cobertura por município e destacar os que estão sem vendedor.", "00:40:39", "visao"],
+  ["RF06", "Definir o tempo de atendimento global da empresa.", "00:35:31", "tempo"],
+  ["RF07", "Definir exceções de tempo por estado, município, bairro, funcionário ou loja.", "00:38:51", "tempo"],
+  ["RF08", "Manter status de loja: ativo, inativo, novo, reativação, journey e prospecção.", "00:41:34", "status"],
+  ["RF09", "Manter motivos de não visita.", "00:42:27", "status"],
+  ["RF10", "Manter motivos de não venda.", "00:43:14", "status"],
+  ["RF11", "Motivos padrão do produto, ocultáveis; a empresa cria os seus; \"Outros\" pede texto livre.", "00:44:14", "status"],
+  ["RF12", "Cadastrar lojas com código do cliente, localização, status e ticket médio.", "00:46:12", "lojas"],
+  ["RF13", "Qualificar lojas pela contagem de marcas qualificadas (good, very good, best).", "00:59:34", "lojas"],
+  ["RF14", "Configurar parâmetros de rota: 12 semanas, 2 visitas/dia, limite territorial, horários e custos.", "00:06:01", "parametros"],
+  ["RF15", "Exigir a conta de IA da empresa (GPT, Claude) com credencial cifrada.", "01:03:55", "parametros"],
+  ["RF16", "Importar bases de estado, município, bairro e carteira de lojas por CSV.", "00:48:35", null]
+];
+const OPEN_Q = [
+  "A precedência do tempo coloca a loja acima do funcionário. Está correto?",
+  "Motivos: padrão do produto mais motivos próprios do gestor. Confirmar se o gestor pode criar.",
+  "Um funcionário pode ter territórios de níveis diferentes em estados diferentes?",
+  "Qual o critério exato de cidade qualificada (PIB x população)?"
+];
+function pageRequisitos() {
+  return head("Validação", "Requisitos do módulo", "Extraídos da reunião de 28/09/2026. Os tempos indicam o trecho da transcrição. Clique em um requisito para ver a tela correspondente.") + `
+  <div class="grid-2">
+    <section class="panel"><div class="panel-head"><h2>Requisitos funcionais</h2><span class="muted">${REQS.length}</span></div>
+      <div class="panel-body req-list">${REQS.map(([id, t, src, pg]) => `<div class="req"><span class="id">${id}</span><span>${pg ? `<a href="#${pg}" data-goto="${pg}" style="color:inherit">${esc(t)}</a>` : esc(t) + ' <span class="pill">próxima entrega</span>'}</span><span class="src">${src}</span></div>`).join("")}</div></section>
+    <div class="stack">
+      <section class="panel"><div class="panel-head"><h2>Pontos para validar</h2></div>
+        <div class="panel-body" style="display:grid;gap:10px">${OPEN_Q.map(q => `<div class="callout">${esc(q)}</div>`).join("")}</div></section>
+      <section class="panel"><div class="panel-head"><h2>Fora desta entrega</h2></div>
+        <div class="panel-body"><p class="muted">Motor de roteirização, check-in por GPS, cronômetro de atendimento com lançamento manual, registro da visita, gravação de áudio, painéis demográficos e relatórios de ROI. Entram nas próximas iterações, sobre os cadastros deste módulo.</p></div></section>
+    </div>
+  </div>`;
+}
+function bindRequisitos() { document.querySelectorAll("[data-goto]").forEach(a => a.onclick = e => { e.preventDefault(); go(a.dataset.goto); }); }
+
+/* ============================================================
+   Render
+   ============================================================ */
+const VIEWS = {
+  visao: [pageVisao, () => document.querySelectorAll("[data-assign]").forEach(b => b.onclick = () => openTerritoryDialog({ nivel: "MUNICIPIO", ref: +b.dataset.assign }))],
+  funcionarios: [pageFuncionarios, bindFuncionarios], territorios: [pageTerritorios, bindTerritorios], lojas: [pageLojas, bindLojas],
+  tempo: [pageTempo, bindTempo], status: [pageStatus, bindStatus], parametros: [pageParametros, bindParametros], requisitos: [pageRequisitos, bindRequisitos]
+};
+function render() {
+  renderNav();
+  const [view, bind] = VIEWS[page];
+  $("#main").innerHTML = view();
+  bind();
+}
+$("#resetBtn").onclick = () => confirmDialog("Restaurar dados de exemplo?", "Todas as alterações feitas neste navegador serão descartadas.", "Restaurar", () => { S = seed(); toast("Dados de exemplo restaurados"); });
+render();
+</script>
